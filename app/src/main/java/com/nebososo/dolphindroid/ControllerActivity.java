@@ -1,6 +1,9 @@
 package com.nebososo.dolphindroid;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.app.Activity;
 import android.content.Context;
@@ -12,6 +15,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -51,6 +55,13 @@ public class ControllerActivity extends Activity implements SensorEventListener 
     private float lastY = 0.f;
     private final AtomicIRData ir = new AtomicIRData();
     private final float[] localIR = new float[2];
+
+    //WatchWrapper logic variables
+    private static final String TAG = "dolphindroid";
+    private static WatchWrapper mWatchWrapper = null;
+    private static boolean mIsBound = false;
+    private static float[] watchAccelerometer;
+    private boolean watchActive = false;
 
     @SuppressLint("ShowToast")
     @Override
@@ -116,6 +127,18 @@ public class ControllerActivity extends Activity implements SensorEventListener 
                     return true;
                 }
             });
+
+            //WatchWrapper logic
+            mIsBound = bindService(new Intent(ControllerActivity.this, WatchWrapper.class), mConnection, Context.BIND_AUTO_CREATE);
+            Button watchButton = (Button) findViewById(R.id.watch_btn);
+
+            watchButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                mWatchWrapper.findPeers();
+                }
+            });
+
         }
 
         Intent intent = getIntent();
@@ -153,12 +176,47 @@ public class ControllerActivity extends Activity implements SensorEventListener 
         sendExecutor.schedule(setupSendRunnable, 0, TimeUnit.MILLISECONDS);
     }
 
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            mWatchWrapper = ((WatchWrapper.LocalBinder) service).getService();
+            Log.i(TAG, "onServiceConnected");
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName className) {
+            mWatchWrapper = null;
+            mIsBound = false;
+            Log.e(TAG, "onServiceDisconnected");
+        }
+    };
+
     private void scheduleSend() {
         Runnable sendRunnable = new Runnable() {
             @Override
             public void run() {
                 int mask = buttonMask.get();
-                accelerometer.get(localAccelerometer);
+
+                watchAccelerometer = mWatchWrapper.GetAccelerometer();
+
+                if(watchAccelerometer == null){
+                    if(watchActive){
+                        Log.w(TAG,"No watch is connected!");
+                        watchActive = false;
+                    }
+                    accelerometer.get(localAccelerometer);
+                }else{
+                    if(!watchActive){
+                        Log.w(TAG,"Watch is connected.");
+                        watchActive = false;
+                    }
+                    System.arraycopy(watchAccelerometer, 0, localAccelerometer,0, 3);
+                }
+
+                Log.i(TAG,accelerometer.get());
+                if(watchAccelerometer != null) {
+                    Log.i(TAG, "Watch accel: (" + watchAccelerometer[0] + "," + watchAccelerometer[1] + "," + watchAccelerometer[2] + ")");
+                }
                 ir.get(localIR);
 
                 int offset = 3;
@@ -225,6 +283,13 @@ public class ControllerActivity extends Activity implements SensorEventListener 
 
     @Override
     protected void onDestroy() {
+
+        // Un-bind service
+        if (mIsBound) {
+            unbindService(mConnection);
+            mIsBound = false;
+        }
+
         sendExecutor.shutdown();
         try {
             sendExecutor.awaitTermination(1, TimeUnit.SECONDS);
@@ -288,6 +353,10 @@ class AtomicButtonMask {
 
 class AtomicAccelerometerData {
     private final float[] v = new float[3];
+
+    public synchronized String get() {
+        return  "Phone accel: (" + v[0] + "," + v[1] + "," + v[2] + ")";
+    }
 
     public synchronized void get(float r[]) {
         r[0] = v[0];
