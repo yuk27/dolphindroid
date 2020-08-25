@@ -43,7 +43,7 @@ public class ControllerActivity extends Activity implements SensorEventListener 
     private static final long maxDelayBetweenBackPresses = 500;
     private int backPresses = 0;
     private PowerManager.WakeLock wl;
-    private DatagramSocket udpSocket;
+    private DatagramSocket udpSocket = null;
     private final byte[] sendBuffer = new byte[27];
     private final ScheduledExecutorService sendExecutor = Executors.newSingleThreadScheduledExecutor();
     private DatagramPacket sendPacket;
@@ -60,7 +60,7 @@ public class ControllerActivity extends Activity implements SensorEventListener 
     private static final String TAG = "dolphindroid";
     private static WatchWrapper mWatchWrapper = null;
     private static boolean mIsBound = false;
-    private static float[] watchAccelerometer;
+    private static float[] watchAccelerometer = null;
     private boolean watchActive = false;
 
     @SuppressLint("ShowToast")
@@ -129,9 +129,9 @@ public class ControllerActivity extends Activity implements SensorEventListener 
             });
 
             //WatchWrapper logic
-            mIsBound = bindService(new Intent(ControllerActivity.this, WatchWrapper.class), mConnection, Context.BIND_AUTO_CREATE);
-            Button watchButton = (Button) findViewById(R.id.watch_btn);
 
+            Button watchButton = (Button) findViewById(R.id.watch_btn);
+            mIsBound = bindService(new Intent(ControllerActivity.this, WatchWrapper.class), mConnection, Context.BIND_AUTO_CREATE);
             watchButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -197,7 +197,9 @@ public class ControllerActivity extends Activity implements SensorEventListener 
             public void run() {
                 int mask = buttonMask.get();
 
-                watchAccelerometer = mWatchWrapper.GetAccelerometer();
+                if(mIsBound && udpSocket != null && mWatchWrapper != null){
+                    watchAccelerometer = mWatchWrapper.GetAccelerometer();
+                }
 
                 if(watchAccelerometer == null){
                     if(watchActive){

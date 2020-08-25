@@ -1,13 +1,9 @@
 package com.nebososo.dolphindroid;
 
-import android.content.Context;
 import android.content.Intent;
-import android.nfc.Tag;
 import android.os.Binder;
-import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.Toast;
 
 import com.samsung.android.sdk.SsdkUnsupportedException;
@@ -27,7 +23,8 @@ public class WatchWrapper  extends SAAgent {
     private SAPeerAgent mSAPeerAgent = null;
     private final IBinder mBinder = new LocalBinder(); //A binder is part of Services class, is used to be able to link to other services
     private final float[] localAccelerometer = new float[3];
-    private boolean busy = false; // Flag for defining if we are waiting for the watch response
+    private int busy = 0; // Flag for defining if we are waiting for the watch response
+    private static final int busy_limit = 3;
 
     private boolean processUnsupportedException(SsdkUnsupportedException e) {
         e.printStackTrace();
@@ -151,7 +148,9 @@ public class WatchWrapper  extends SAAgent {
 
             @Override
             protected void onReceive(SAPeerAgent peerAgent, byte[] message) {
-                // busy = false; // release the connection
+                if(busy > 0){
+                    busy--;
+                } // release the connection
                 String dataVal = new String(message);
 
                 try {
@@ -166,8 +165,6 @@ public class WatchWrapper  extends SAAgent {
                     localAccelerometer[1] = 0;
                     localAccelerometer[2] = 0;
                 }
-
-                //Log.i(TAG, dataVal);
             }
         };
     }
@@ -176,10 +173,10 @@ public class WatchWrapper  extends SAAgent {
         float[] res = null;
         if(mSAPeerAgent != null){
             res = localAccelerometer;
-            //if(!busy){
-            sendData("0");
-            //    busy = true;
-            //}
+            if(busy < busy_limit){
+                sendData("0");
+                busy++;
+            }
         }
         return res;
     }
@@ -198,11 +195,11 @@ public class WatchWrapper  extends SAAgent {
                 return tid;
             } catch (IOException e) {
                 e.printStackTrace();
-                //Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
                 return -1;
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
-                //Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
                 return -1;
             }
         }
