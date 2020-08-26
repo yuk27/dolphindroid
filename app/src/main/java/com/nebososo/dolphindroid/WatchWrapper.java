@@ -23,6 +23,7 @@ public class WatchWrapper  extends SAAgent {
     private SAPeerAgent mSAPeerAgent = null;
     private final IBinder mBinder = new LocalBinder(); //A binder is part of Services class, is used to be able to link to other services
     private final float[] localAccelerometer = new float[3];
+    private final boolean[] keys = new boolean[6];
     private int busy = 0; // Flag for defining if we are waiting for the watch response
     private static final int busy_limit = 3;
 
@@ -159,6 +160,10 @@ public class WatchWrapper  extends SAAgent {
                         String s = separated[i].substring(0, Math.min(separated[i].length(), 8));
                         localAccelerometer[i] = Float.parseFloat(s);
                     }
+                    for(int x = 0; x < 6; x++){
+                        keys[x] =  (separated[3].charAt(x) == 't');
+                    }
+                    Log.i(TAG, "BTN info: " + separated[3]);
                 }catch (Exception e){
                     Log.e(TAG, "Error getting value to float: " + dataVal);
                     localAccelerometer[0] = 0;
@@ -167,6 +172,10 @@ public class WatchWrapper  extends SAAgent {
                 }
             }
         };
+    }
+
+    public boolean[] getKeys(){
+        return keys;
     }
 
     public float[] GetAccelerometer(){

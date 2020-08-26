@@ -61,6 +61,9 @@ public class ControllerActivity extends Activity implements SensorEventListener 
     private static WatchWrapper mWatchWrapper = null;
     private static boolean mIsBound = false;
     private static float[] watchAccelerometer = null;
+    private static boolean[] watchButtons = null;
+    private static boolean[] previousWatchButtons = {false, false, false, false, false, false};
+    private static final int[] keyValues = {512, 1024, 128, 256, 4, 8};
     private boolean watchActive = false;
 
     @SuppressLint("ShowToast")
@@ -99,21 +102,21 @@ public class ControllerActivity extends Activity implements SensorEventListener 
             }
         });
 
-        maskMap.put(R.id.button_1, 1);
-        maskMap.put(R.id.button_2, 1 << 1);
-        maskMap.put(R.id.button_a, 1 << 2);
-        maskMap.put(R.id.button_b, 1 << 3);
-        maskMap.put(R.id.button_plus, 1 << 4);
-        maskMap.put(R.id.button_minus, 1 << 5);
-        maskMap.put(R.id.button_home, 1 << 6);
-        maskMap.put(R.id.button_up, 1 << 7);
-        maskMap.put(R.id.button_down, 1 << 8);
-        maskMap.put(R.id.button_left, 1 << 9);
-        maskMap.put(R.id.button_right, 1 << 10);
-        maskMap.put(R.id.button_ul, 1 << 7 | 1 << 9);
-        maskMap.put(R.id.button_ur, 1 << 7 | 1 << 10);
-        maskMap.put(R.id.button_dl, 1 << 8 | 1 << 9);
-        maskMap.put(R.id.button_dr, 1 << 8 | 1 << 10);
+        maskMap.put(R.id.button_1, 1); // 1
+        maskMap.put(R.id.button_2, 1 << 1); // 2
+        maskMap.put(R.id.button_a, 1 << 2); // 4
+        maskMap.put(R.id.button_b, 1 << 3); // 8
+        maskMap.put(R.id.button_plus, 1 << 4); // 16
+        maskMap.put(R.id.button_minus, 1 << 5); // 32
+        maskMap.put(R.id.button_home, 1 << 6); // 64
+        maskMap.put(R.id.button_up, 1 << 7); // 128
+        maskMap.put(R.id.button_down, 1 << 8); // 256
+        maskMap.put(R.id.button_left, 1 << 9); // 512
+        maskMap.put(R.id.button_right, 1 << 10); // 1024
+        maskMap.put(R.id.button_ul, 1 << 7 | 1 << 9); // 640
+        maskMap.put(R.id.button_ur, 1 << 7 | 1 << 10); // 1152
+        maskMap.put(R.id.button_dl, 1 << 8 | 1 << 9); // 768
+        maskMap.put(R.id.button_dr, 1 << 8 | 1 << 10); // 1280
 
         for (Map.Entry<Integer, Integer> entry : maskMap.entrySet()) {
             Button b = (Button) findViewById(entry.getKey());
@@ -122,6 +125,7 @@ public class ControllerActivity extends Activity implements SensorEventListener 
                 public boolean onTouch(View v, MotionEvent event) {
                     int action = event.getAction();
                     if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_UP) {
+                        int status = maskMap.get(v.getId());
                         buttonMask.xor(maskMap.get(v.getId()));
                     }
                     return true;
@@ -195,11 +199,23 @@ public class ControllerActivity extends Activity implements SensorEventListener 
         Runnable sendRunnable = new Runnable() {
             @Override
             public void run() {
-                int mask = buttonMask.get();
+
 
                 if(mIsBound && udpSocket != null && mWatchWrapper != null){
                     watchAccelerometer = mWatchWrapper.GetAccelerometer();
+                    watchButtons = mWatchWrapper.getKeys();
+
+                    for (int i = 0; i < watchButtons.length; i++){
+                        if(watchButtons[i] != previousWatchButtons[i]){
+                            buttonMask.xor(keyValues[i]);
+                        }
+                    }
+
+                    previousWatchButtons = watchButtons.clone();
+
                 }
+
+                int mask = buttonMask.get();
 
                 if(watchAccelerometer == null){
                     if(watchActive){
